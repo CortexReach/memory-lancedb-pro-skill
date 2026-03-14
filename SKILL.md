@@ -496,6 +496,13 @@ Expected log output:
 
 Use **absolute paths** in `plugins.load.paths`. Add to `plugins.allow`. Bind memory slot: `plugins.slots.memory = "memory-lancedb-pro"`. Set `plugins.entries.memory-lancedb-pro.enabled: true`.
 
+Then restart and verify:
+```bash
+openclaw config validate
+openclaw gateway restart
+openclaw logs --follow --plain | rg "memory-lancedb-pro"
+```
+
 ### New User First-Install Checklist
 
 After the plugin starts successfully, determine which scenario applies and run the corresponding steps:
@@ -654,19 +661,26 @@ openclaw plugins install @scope/plugin@beta     # install from npm registry
 openclaw plugins install -l ./path/to/plugin    # symlink for dev (no copy)
 ```
 
+> **Gateway restart required** after: `plugins install`, `plugins enable`, `plugins disable`, `plugins update`, or any change to `openclaw.json`. Changes do not take effect until the gateway is restarted.
+>
+> ```bash
+> openclaw gateway restart
+> ```
+
 ### Easy-to-Miss Setup Steps
 
-1. **Workspace plugins are DISABLED by default**: After git clone, you MUST add `plugins.allow: ["memory-lancedb-pro"]` AND `plugins.entries.memory-lancedb-pro.enabled: true` — without these the plugin silently does not load.
-2. **Env vars in gateway process**: `${OPENAI_API_KEY}` requires env vars set in the *OpenClaw Gateway service* process—not just your shell.
-3. **Absolute vs. relative paths**: For existing deployments, always use absolute paths in `plugins.load.paths`.
-4. **jiti cache invalidation**: After modifying `.ts` files under plugins, run `rm -rf /tmp/jiti/` BEFORE `openclaw gateway restart`.
-5. **Unknown plugin id = error**: OpenClaw treats unknown ids in `entries`, `allow`, `deny`, or `slots` as validation errors. The plugin id must be discoverable before referencing it.
-6. **Separate LLM config**: If embedding and LLM use different providers, configure the `llm` section separately — it falls back to embedding key/URL otherwise.
-7. **Scope isolation**: Multi-scope requires explicit `scopes.agentAccess` mapping — without it, agents only see `global` scope.
-8. **Session memory hook**: Fires on `/new` command — test with an actual `/new` invocation.
-9. **Reranker credentials**: When switching providers, update both `rerankApiKey` AND `rerankEndpoint`.
-10. **Config check before assuming defaults**: Run `openclaw config get plugins.entries.memory-lancedb-pro` to verify what's actually loaded.
-11. **Custom config/state paths via env vars**: OpenClaw respects the following environment variables for custom paths:
+1. **Gateway restart required after any change**: After installing, enabling, disabling, updating, or changing config in `openclaw.json`, you MUST run `openclaw gateway restart` — changes are NOT hot-reloaded.
+2. **Workspace plugins are DISABLED by default**: After git clone, you MUST add `plugins.allow: ["memory-lancedb-pro"]` AND `plugins.entries.memory-lancedb-pro.enabled: true` — without these the plugin silently does not load.
+3. **Env vars in gateway process**: `${OPENAI_API_KEY}` requires env vars set in the *OpenClaw Gateway service* process—not just your shell.
+4. **Absolute vs. relative paths**: For existing deployments, always use absolute paths in `plugins.load.paths`.
+5. **jiti cache invalidation**: After modifying `.ts` files under plugins, run `rm -rf /tmp/jiti/` BEFORE `openclaw gateway restart`.
+6. **Unknown plugin id = error**: OpenClaw treats unknown ids in `entries`, `allow`, `deny`, or `slots` as validation errors. The plugin id must be discoverable before referencing it.
+7. **Separate LLM config**: If embedding and LLM use different providers, configure the `llm` section separately — it falls back to embedding key/URL otherwise.
+8. **Scope isolation**: Multi-scope requires explicit `scopes.agentAccess` mapping — without it, agents only see `global` scope.
+9. **Session memory hook**: Fires on `/new` command — test with an actual `/new` invocation.
+10. **Reranker credentials**: When switching providers, update both `rerankApiKey` AND `rerankEndpoint`.
+11. **Config check before assuming defaults**: Run `openclaw config get plugins.entries.memory-lancedb-pro` to verify what's actually loaded.
+12. **Custom config/state paths via env vars**: OpenClaw respects the following environment variables for custom paths:
     - `OPENCLAW_HOME` — sets the root config/data directory (default: `~/.openclaw/`)
     - `OPENCLAW_CONFIG_PATH` — absolute path to `openclaw.json` override
     - `OPENCLAW_STATE_DIR` — override for runtime state/data directory
