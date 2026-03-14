@@ -420,12 +420,12 @@ openclaw plugins install memory-lancedb-pro@beta
 # Install stable release from npm (@latest tag, e.g. 1.0.32)
 openclaw plugins install memory-lancedb-pro
 
-# Or install from a local git clone (installs whatever branch/commit you cloned)
-git clone https://github.com/CortexReach/memory-lancedb-pro.git /tmp/memory-lancedb-pro
+# Or install from a local git clone — use master branch (matches npm @beta)
+git clone -b master https://github.com/CortexReach/memory-lancedb-pro.git /tmp/memory-lancedb-pro
 openclaw plugins install /tmp/memory-lancedb-pro
 ```
 
-> **npm vs GitHub main branch:** `@beta` installs from the npm registry, not directly from GitHub. The npm beta tag may be ahead of or behind the GitHub main branch at any given time. To get the absolute latest code, clone the repo manually. To get the latest published release, use npm.
+> **npm vs GitHub branches:** `@beta` installs from the npm registry (not directly from GitHub). The repo has two long-lived branches: **`master`** is the release branch (matches npm `@beta`), **`main`** is older/behind. Always clone `master` if you want code that matches the published beta.
 
 Then bind the memory slot and add your config (see Configuration section below):
 ```json
@@ -455,7 +455,7 @@ openclaw plugins info memory-lancedb-pro
 ```bash
 # 1. Clone into workspace
 cd /path/to/your/openclaw/workspace
-git clone https://github.com/CortexReach/memory-lancedb-pro.git plugins/memory-lancedb-pro
+git clone -b master https://github.com/CortexReach/memory-lancedb-pro.git plugins/memory-lancedb-pro
 cd plugins/memory-lancedb-pro && npm install
 ```
 
