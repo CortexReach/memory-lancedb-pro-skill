@@ -713,6 +713,23 @@ Full smoke test checklist:
 
 ---
 
+## Troubleshooting — Error Message Quick Reference
+
+| Error message | Root cause | Fix |
+|---------------|-----------|-----|
+| `must NOT have additional properties` + `config.embedding` | Field name typo in embedding config (e.g. `baseUrl` instead of `baseURL`) | Check all field names against the schema table below — field names are case-sensitive |
+| `must NOT have additional properties` (top-level config) | Unknown top-level field in plugin config | Remove or correct the field |
+| `memory-lancedb-pro: plugin not found` / plugin silently not loading | `plugins.allow` missing (git-clone install) or `enabled: false` | Add `plugins.allow: ["memory-lancedb-pro"]` and set `enabled: true`, then restart |
+| `Unknown plugin id` validation error | Plugin referenced in `entries`/`slots` before it's discoverable | Install/register the plugin first, then add config references |
+| `${OPENAI_API_KEY}` not expanding / auth errors despite env var set | Env var not set in the **gateway process** environment | Set the env var in the service that runs OpenClaw gateway, not just your shell |
+| Hooks (`before_agent_start`, `agent_end`) not firing | Gateway not restarted after install/config change | Run `openclaw gateway restart` |
+| Embedding errors with Ollama | Wrong `baseURL` format | Must be `http://localhost:11434/v1` (with `/v1`), field must be `baseURL` not `baseUrl` |
+| `memory-pro stats` shows 0 entries after conversation | `autoCapture` false or `extractMinMessages` not reached | Set `autoCapture: true`; need at least `extractMinMessages` (default 2) turns |
+| Memories not injected before agent replies | `autoRecall` is false (schema default) | Explicitly set `"autoRecall": true` |
+| `jiti` cache error after editing plugin `.ts` files | Stale compiled cache | Run `rm -rf /tmp/jiti/` then `openclaw gateway restart` |
+
+---
+
 ## Configuration
 
 ### Minimal Quick-Start
