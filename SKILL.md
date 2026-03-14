@@ -587,25 +587,56 @@ Then trigger a conversation — `autoCapture` will start storing memories automa
 
 ---
 
+### LanceDB Version Compatibility
+
+> **No manual action required for LanceDB version changes.**
+
+The plugin requires `@lancedb/lancedb ^0.26.2` as an npm dependency — this is installed automatically when you install or update the plugin. You do not need to manually install or upgrade LanceDB.
+
+LanceDB 0.26+ changed how numeric columns are returned (Arrow `BigInt` type for `timestamp`, `importance`, `_distance`, `_score`). The plugin handles this transparently at runtime via internal `Number(...)` coercion — no migration commands are needed when moving between LanceDB versions.
+
+**TL;DR:** LanceDB version compatibility is fully automatic. See the table below for when each maintenance command actually applies.
+
 ### Upgrading plugin code vs. data
 
 **Command distinction (important):**
 
-| Command | Purpose |
-|---------|---------|
-| `openclaw plugins update memory-lancedb-pro` | Update the **plugin code** (npm-installed only) |
-| `openclaw plugins update --all` | Update all npm-installed plugins |
-| `openclaw memory-pro upgrade` | Migrate **memory data** from older format to v1.1.0 schema |
-| `openclaw memory-pro migrate` | Only for built-in `memory-lancedb` → Pro data migration |
-| `openclaw memory-pro reembed` | Rebuild embeddings after changing embedding model |
+| Command | When to use |
+|---------|-------------|
+| `openclaw plugins update memory-lancedb-pro` | Update **plugin code** after a new release (npm-installed only) |
+| `openclaw plugins update --all` | Update all npm-installed plugins at once |
+| `openclaw memory-pro upgrade` | Enrich **old memory-lancedb-pro entries** that predate the smart-memory schema (missing L0/L1/L2 metadata + 6-category system) — NOT related to LanceDB version |
+| `openclaw memory-pro migrate` | One-time migration from the separate `memory-lancedb` built-in plugin → Pro |
+| `openclaw memory-pro reembed` | Rebuild all embeddings after switching embedding model or provider |
 
-Safe data upgrade sequence:
+**When do you need `memory-pro upgrade`?**
+
+Run it if you installed memory-lancedb-pro before the smart-memory format was introduced (i.e., entries are missing `memory_category` in their metadata). Signs you need it:
+- `memory_recall` returns results but without meaningful categories
+- `memory-pro list --json` shows entries with no `l0_abstract` / `l1_overview` fields
+
+Safe upgrade sequence:
 ```bash
+# 1. Backup first
 openclaw memory-pro export --scope global --output memories-backup.json
+
+# 2. Preview what would change
 openclaw memory-pro upgrade --dry-run
+
+# 3. Run upgrade (uses LLM by default for L0/L1/L2 generation)
 openclaw memory-pro upgrade
+
+# 4. Verify results
 openclaw memory-pro stats
 openclaw memory-pro search "your known keyword" --scope global --limit 5
+```
+
+Upgrade options:
+```bash
+openclaw memory-pro upgrade --no-llm          # skip LLM, use simple text truncation
+openclaw memory-pro upgrade --batch-size 5    # slower but safer for large collections
+openclaw memory-pro upgrade --limit 50        # process only first N entries
+openclaw memory-pro upgrade --scope global    # limit to one scope
 ```
 
 ### Plugin management commands
