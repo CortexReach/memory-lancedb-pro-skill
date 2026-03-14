@@ -645,9 +645,24 @@ Uses Jina for both embedding and reranking — best retrieval quality:
       "discord-bot": ["global", "agent:discord-bot"]
     }
   },
-  "sessionMemory": { "enabled": false, "messageCount": 15 },
+  "sessionStrategy": "none",
+  "memoryReflection": {
+    "storeToLanceDB": true,
+    "injectMode": "inheritance+derived",
+    "agentId": "memory-distiller",
+    "messageCount": 120,
+    "maxInputChars": 24000,
+    "thinkLevel": "medium"
+  },
+  "selfImprovement": {
+    "enabled": true,
+    "beforeResetNote": true,
+    "ensureLearningFiles": true
+  },
+  "mdMirror": { "enabled": false },
   "decay": {
     "recencyHalfLifeDays": 30,
+    "recencyWeight": 0.4,
     "frequencyWeight": 0.3,
     "intrinsicWeight": 0.3,
     "betaCore": 0.8,
@@ -657,6 +672,9 @@ Uses Jina for both embedding and reranking — best retrieval quality:
   "tier": {
     "coreAccessThreshold": 10,
     "coreCompositeThreshold": 0.7,
+    "coreImportanceThreshold": 0.8,
+    "workingAccessThreshold": 3,
+    "workingCompositeThreshold": 0.4,
     "peripheralCompositeThreshold": 0.15,
     "peripheralAgeDays": 60
   }
@@ -678,6 +696,7 @@ Uses Jina for both embedding and reranking — best retrieval quality:
 | `taskPassage` | string | — | Task hint for passage embeddings (`retrieval.passage`) |
 | `normalized` | boolean | false | Request L2-normalized embeddings |
 | `provider` | string | `openai-compatible` | Provider type selector |
+| `chunking` | boolean | true | Auto-chunk documents exceeding embedding context limits |
 
 ### Top-Level
 | Field | Type | Default | Description |
@@ -690,6 +709,9 @@ Uses Jina for both embedding and reranking — best retrieval quality:
 | `extractMinMessages` | number | 2 | Min conversation turns before extraction triggers |
 | `extractMaxChars` | number | 8000 | Max context chars sent to extraction LLM |
 | `enableManagementTools` | boolean | false | Register CLI management tools as agent tools |
+| `autoRecallMinLength` | number | 15 | Min prompt chars to trigger auto-recall (6 for CJK) |
+| `autoRecallMinRepeated` | number | 0 | Min turns before same memory can re-inject in same session |
+| `sessionStrategy` | string | `none` | Session pipeline: `memoryReflection` / `systemSessionMemory` / `none` |
 
 ### LLM (for Smart Extraction)
 | Field | Type | Default | Description |
@@ -701,13 +723,13 @@ Uses Jina for both embedding and reranking — best retrieval quality:
 ### Retrieval
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `mode` | string | `hybrid` | `hybrid` / `vector` / `bm25` |
+| `mode` | string | `hybrid` | `hybrid` / `vector` (`bm25`-only mode does not exist in schema) |
 | `vectorWeight` | number | 0.7 | Weight for vector search |
 | `bm25Weight` | number | 0.3 | Weight for BM25 full-text search |
 | `minScore` | number | 0.3 | Minimum relevance threshold |
 | `hardMinScore` | number | 0.35 | Hard cutoff post-reranking |
 | `rerank` | string | `cross-encoder` | Reranking strategy |
-| `rerankProvider` | string | `jina` | `jina` / `siliconflow` / `voyage` / `pinecone` |
+| `rerankProvider` | string | `jina` | `jina` / `siliconflow` / `voyage` / `pinecone` / `dashscope` |
 | `rerankModel` | string | `jina-reranker-v3` | Reranker model name |
 | `rerankEndpoint` | string | provider default | Reranker API URL |
 | `rerankApiKey` | string | — | Reranker API key |
@@ -722,27 +744,87 @@ Uses Jina for both embedding and reranking — best retrieval quality:
 
 **Access reinforcement note:** Reinforcement is whitelisted to `source: "manual"` only — auto-recall does NOT strengthen memories, preventing noise amplification.
 
-### Session Memory
+### Session Strategy (v1.1.0+)
+
+Use `sessionStrategy` (top-level field) to configure the session pipeline:
+
+| Value | Behavior |
+|-------|----------|
+| `"none"` (default) | Session summaries disabled |
+| `"memoryReflection"` | Advanced LLM-powered reflection with inheritance/derived injection |
+| `"systemSessionMemory"` | Built-in session memory (simpler, legacy-equivalent) |
+
+**`memoryReflection` config** (used when `sessionStrategy: "memoryReflection"`):
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `sessionMemory.enabled` | boolean | false | Save session summaries on `/new` |
-| `sessionMemory.messageCount` | number | 15 | Messages to include in summary |
+| `storeToLanceDB` | boolean | true | Persist reflections to LanceDB |
+| `writeLegacyCombined` | boolean | true | Also write legacy combined row |
+| `injectMode` | string | `inheritance+derived` | `inheritance-only` / `inheritance+derived` |
+| `agentId` | string | — | Dedicated reflection agent (e.g. `"memory-distiller"`) |
+| `messageCount` | number | 120 | Messages to include in reflection |
+| `maxInputChars` | number | 24000 | Max chars sent to reflection LLM |
+| `timeoutMs` | number | 20000 | Reflection LLM timeout (ms) |
+| `thinkLevel` | string | `medium` | Reasoning depth: `off` / `minimal` / `low` / `medium` / `high` |
+| `errorReminderMaxEntries` | number | 3 | Max error entries injected into reflection |
+| `dedupeErrorSignals` | boolean | true | Deduplicate error signals before injection |
+
+### Session Memory (deprecated — legacy compat only)
+
+> ⚠️ **`sessionMemory` is a legacy compatibility shim since v1.1.0.** Prefer `sessionStrategy` instead.
+> - `sessionMemory.enabled: true` → maps to `sessionStrategy: "systemSessionMemory"`
+> - `sessionMemory.enabled: false` → maps to `sessionStrategy: "none"`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sessionMemory.enabled` | boolean | false | Legacy: enable session summaries on `/new` |
+| `sessionMemory.messageCount` | number | 15 | Legacy: maps to `memoryReflection.messageCount` |
+
+### Self-Improvement Governance
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `selfImprovement.enabled` | boolean | **true** | Enable self-improvement tools (`self_improvement_log` etc.) — **on by default** |
+| `selfImprovement.beforeResetNote` | boolean | true | Inject learning reminder before session reset |
+| `selfImprovement.skipSubagentBootstrap` | boolean | true | Skip bootstrap for sub-agents |
+| `selfImprovement.ensureLearningFiles` | boolean | true | Auto-create `LEARNINGS.md` / `ERRORS.md` if missing |
+
+**Tool activation rules:**
+- `self_improvement_log`: requires `selfImprovement.enabled: true` (default — active unless explicitly disabled)
+- `self_improvement_extract_skill` + `self_improvement_review`: additionally require `enableManagementTools: true`
+
+### Markdown Mirror
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mdMirror.enabled` | boolean | false | Mirror memory entries as `.md` files |
+| `mdMirror.dir` | string | — | Directory for markdown mirror files |
 
 ### Decay
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `decay.recencyHalfLifeDays` | number | 30 | Base Weibull decay half-life |
+| `decay.recencyWeight` | number | 0.4 | Weight of recency in lifecycle score (distinct from `retrieval.recencyWeight`) |
 | `decay.frequencyWeight` | number | 0.3 | Weight of access frequency |
 | `decay.intrinsicWeight` | number | 0.3 | Weight of importance × confidence |
 | `decay.betaCore` | number | 0.8 | Weibull shape for core memories |
 | `decay.betaWorking` | number | 1.0 | Weibull shape for working memories |
 | `decay.betaPeripheral` | number | 1.3 | Weibull shape for peripheral memories |
+| `decay.coreDecayFloor` | number | 0.9 | Minimum lifecycle score for core tier |
+| `decay.workingDecayFloor` | number | 0.7 | Minimum lifecycle score for working tier |
+| `decay.peripheralDecayFloor` | number | 0.5 | Minimum lifecycle score for peripheral tier |
+| `decay.staleThreshold` | number | 0.3 | Score below which a memory is considered stale |
+| `decay.searchBoostMin` | number | 0.3 | Minimum search boost applied to lifecycle score |
+| `decay.importanceModulation` | number | 1.5 | Multiplier for importance in lifecycle score |
 
 ### Tier Management
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `tier.coreAccessThreshold` | number | 10 | Access count for core promotion |
 | `tier.coreCompositeThreshold` | number | 0.7 | Lifecycle score for core promotion |
+| `tier.coreImportanceThreshold` | number | 0.8 | Minimum importance for core promotion |
+| `tier.workingAccessThreshold` | number | 3 | Access count for working promotion |
+| `tier.workingCompositeThreshold` | number | 0.4 | Lifecycle score for working promotion |
 | `tier.peripheralCompositeThreshold` | number | 0.15 | Score below which demotion occurs |
 | `tier.peripheralAgeDays` | number | 60 | Age threshold for stale memory demotion |
 
@@ -775,11 +857,11 @@ Uses Jina for both embedding and reranking — best retrieval quality:
 | `memoryId` | string | one of | Full UUID or 8+ char prefix |
 | `scope` | string | no | Scope for search/deletion |
 
-**`memory_update`** — Update memory in-place (preserves original timestamp)
+**`memory_update`** — Update memory (preserves original timestamp; `preference`/`entity` text updates create a new versioned row preserving history)
 | Parameter | Type | Required | Notes |
 |-----------|------|----------|-------|
 | `memoryId` | string | yes | Full UUID or 8+ char prefix |
-| `text` | string | no | New content (triggers re-embedding) |
+| `text` | string | no | New content (triggers re-embedding; `preference`/`entity` creates supersede version) |
 | `importance` | number | no | New score 0–1 |
 | `category` | enum | no | New classification |
 
@@ -791,7 +873,9 @@ Uses Jina for both embedding and reranking — best retrieval quality:
 **`memory_list`** — List recent memories with filtering
 - `limit` (number, optional, default 10, max 50), `scope`, `category`, `offset` (pagination)
 
-### Self-Improvement Tools (optional)
+### Self-Improvement Tools
+
+> `self_improvement_log` is **enabled by default** (`selfImprovement.enabled: true`). `self_improvement_extract_skill` and `self_improvement_review` additionally require `enableManagementTools: true`.
 
 **`self_improvement_log`** — Log learning/error entries into LEARNINGS.md / ERRORS.md
 | Parameter | Type | Required | Notes |
@@ -886,6 +970,7 @@ Disable: `{ "smartExtraction": false }`
 | SiliconFlow | `siliconflow` | `https://api.siliconflow.com/v1/rerank` | `BAAI/bge-reranker-v2-m3` | Free tier available |
 | Voyage AI | `voyage` | `https://api.voyageai.com/v1/rerank` | `rerank-2.5` | Sends `{model, query, documents}`, no `top_n` |
 | Pinecone | `pinecone` | `https://api.pinecone.io/rerank` | `bge-reranker-v2-m3` | Pinecone customers only |
+| DashScope (Aliyun) | `dashscope` | `https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank` | `gte-rerank-v2` | Alibaba Cloud |
 
 Jina key can be reused for both embedding and reranking.
 
