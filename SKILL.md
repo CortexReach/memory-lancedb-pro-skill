@@ -405,6 +405,21 @@ Then do a quick smoke test:
 
 ## Installation
 
+### Quick Install (Beginner-Friendly)
+
+For new users, the community one-click installer handles everything automatically — path detection, schema validation, auto-update, provider selection, and rollback:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CortexReach/toolbox/main/memory-lancedb-pro-setup/setup-memory.sh -o setup-memory.sh
+bash setup-memory.sh
+```
+
+Options: `--dry-run` (preview only), `--beta` (include pre-release), `--ref v1.2.0` (pin version), `--selfcheck-only`, `--uninstall`.
+
+Source: https://github.com/CortexReach/toolbox/tree/main/memory-lancedb-pro-setup
+
+---
+
 ### Requirements
 - Node.js 24 recommended (Node 22 LTS minimum, `22.16+`)
 - LanceDB ≥ 0.26.2
@@ -714,6 +729,17 @@ Full smoke test checklist:
 ---
 
 ## Troubleshooting — Error Message Quick Reference
+
+**Config validation tool** (from [CortexReach/toolbox](https://github.com/CortexReach/toolbox)):
+```bash
+# Download once
+curl -fsSL https://raw.githubusercontent.com/CortexReach/toolbox/main/memory-lancedb-pro-setup/scripts/config-validate.mjs -o config-validate.mjs
+# Run against your openclaw.json
+node config-validate.mjs
+# Or validate a specific config snippet
+node config-validate.mjs --json '{"embedding":{"baseURL":"http://localhost:11434/v1","model":"bge-m3","apiKey":"ollama"}}'
+```
+Exit code 0 = pass/warn, 1 = errors found.
 
 | Error message | Root cause | Fix |
 |---------------|-----------|-----|
@@ -1194,11 +1220,23 @@ Disable: `{ "smartExtraction": false }`
 | Jina (multimodal) | `jina-embeddings-v4` | `https://api.jina.ai/v1` | 1024 | Text + image, Qwen2.5-VL backbone |
 | OpenAI | `text-embedding-3-large` | `https://api.openai.com/v1` | 3072 | Best OpenAI quality (MTEB 64.6%) |
 | OpenAI | `text-embedding-3-small` | `https://api.openai.com/v1` | 1536 | Cost-efficient |
+| DashScope (Alibaba) | `text-embedding-v4` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | 1024 | Recommended for Chinese users; also supports rerank (see note below) |
 | Google Gemini | `gemini-embedding-2-preview` | `https://generativelanguage.googleapis.com/v1beta/openai/` | 3072 | Latest (Mar 2026), multimodal, 100+ languages |
 | Google Gemini | `gemini-embedding-001` | `https://generativelanguage.googleapis.com/v1beta/openai/` | 3072 | Stable text-only |
 | Ollama (local) | `mxbai-embed-large` | `http://localhost:11434/v1` | 1024 | **Recommended local** — beats text-embedding-3-large |
 | Ollama (local) | `snowflake-arctic-embed2` | `http://localhost:11434/v1` | 1024 | Best multilingual local option |
 | Ollama (local) | `nomic-embed-text:v1.5` | `http://localhost:11434/v1` | 768 | Lightweight classic, 270MB |
+
+**DashScope rerank note:** DashScope is not a `rerankProvider` enum value, but its rerank API response is Jina-compatible. Use `rerankProvider: "jina"` with DashScope's endpoint:
+```json
+"retrieval": {
+  "rerank": "cross-encoder",
+  "rerankProvider": "jina",
+  "rerankModel": "qwen3-rerank",
+  "rerankEndpoint": "https://dashscope.aliyuncs.com/compatible-api/v1/reranks",
+  "rerankApiKey": "${DASHSCOPE_API_KEY}"
+}
+```
 
 **Multi-key failover:** Set `apiKey` as an array for round-robin rotation on 429/503 errors.
 
