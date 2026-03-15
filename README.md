@@ -43,17 +43,19 @@ For **OpenClaw** users:
 git clone https://github.com/CortexReach/memory-lancedb-pro-skill.git ~/.openclaw/workspace/skills/skills/memory-lancedb-pro-skill
 ```
 
-**Option B — manual download:**
+**Option B — download ZIP from GitHub:**
 
-1. Download the latest `memory-lancedb-pro.zip` from [Releases](../../releases)
+1. Click **Code → Download ZIP** on the [repository page](https://github.com/CortexReach/memory-lancedb-pro-skill)
 2. Extract and place in your skills directory:
 
 ```bash
 # Claude Code
-unzip memory-lancedb-pro.zip -d ~/.claude/skills/
+unzip memory-lancedb-pro-skill-main.zip
+mv memory-lancedb-pro-skill-main ~/.claude/skills/memory-lancedb-pro
 
 # OpenClaw
-unzip memory-lancedb-pro.zip -d ~/.openclaw/workspace/skills/skills/
+unzip memory-lancedb-pro-skill-main.zip
+mv memory-lancedb-pro-skill-main ~/.openclaw/workspace/skills/skills/memory-lancedb-pro-skill
 ```
 
 **Verify the skill is loaded:**
