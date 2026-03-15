@@ -29,32 +29,41 @@ When installed, Claude Code can:
 
 ### Install the skill
 
-**Option A — via Claude Code skill manager (recommended):**
+> **Note:** This is a *skill* (knowledge file for AI agents), not a plugin. Skills are installed by placing them in your skills directory — there is no `openclaw skills install` command.
 
+**Option A — clone this repo (recommended):**
+
+For **Claude Code** users:
 ```bash
-openclaw skills install memory-lancedb-pro-skill
+git clone https://github.com/CortexReach/memory-lancedb-pro-skill.git ~/.claude/skills/memory-lancedb-pro
 ```
 
-**Option B — manual install:**
+For **OpenClaw** users:
+```bash
+git clone https://github.com/CortexReach/memory-lancedb-pro-skill.git ~/.openclaw/workspace/skills/skills/memory-lancedb-pro-skill
+```
+
+**Option B — manual download:**
 
 1. Download the latest `memory-lancedb-pro.zip` from [Releases](../../releases)
 2. Extract and place in your skills directory:
 
 ```bash
+# Claude Code
 unzip memory-lancedb-pro.zip -d ~/.claude/skills/
+
+# OpenClaw
+unzip memory-lancedb-pro.zip -d ~/.openclaw/workspace/skills/skills/
 ```
 
-3. Verify the skill is loaded:
+**Verify the skill is loaded:**
 
 ```bash
-# In Claude Code, the skill loads automatically based on trigger conditions
+# Claude Code: the skill loads automatically based on trigger conditions
 # To test: ask Claude Code "help me configure memory-lancedb-pro"
-```
 
-**Option C — clone this repo directly:**
-
-```bash
-git clone https://github.com/CortexReach/memory-lancedb-pro-skill.git ~/.claude/skills/memory-lancedb-pro
+# OpenClaw: check skill discovery
+openclaw skills list
 ```
 
 ---
